@@ -2,6 +2,24 @@
 
 _Date de génération : 2026-05-06 00:19 UTC_
 
+## Organisation des fichiers
+
+Cette documentation est maintenant rangee dans `docs/migrations/supabase/`.
+
+| Chemin | Role |
+|---|---|
+| `README.md` | Diagnostic et strategie de migration |
+| `USAGE.md` | Ordre d'utilisation et precautions |
+| `samples/players_rows.sample.csv` | Exemple anonymise du format `players` |
+| `samples/profiles_rows.sample.csv` | Exemple anonymise du format `profiles` |
+| `sql/001_create_old_import_tables.sql` | Creation du schema `old_import` et des tables d'import |
+| `sql/002_merge_players.sql` | Fusion prudente des donnees `players` |
+| `sql/003_rls_players.sql` | Policies RLS de base pour `players` |
+| `sql/004_triggers_players.sql` | Triggers utiles pour `players` |
+| `raw/` | Exports CSV reels, ignore par Git |
+
+Les vrais exports CSV ne doivent pas etre commites. Le dossier `raw/` est garde localement pour l'import manuel et ignore via `.gitignore`.
+
 ## 1. Objectif
 
 Tu as actuellement deux projets / bases Supabase :
@@ -31,25 +49,25 @@ Le principe important : **la nouvelle base reste la base officielle**, et l’an
 
 ## 2. Fichiers analysés
 
-Tu as fourni 3 fichiers CSV :
+Les exports reels ont ete deplaces dans `raw/`. Les fichiers publics de reference sont dans `samples/`.
 
 | Fichier | Rôle supposé | Nombre de lignes | Colonnes |
 |---|---:|---:|---|
-| `players_rows.csv` | Données joueur / progression | 8 | `id, username, gold, pack_count, created_at, updated_at, cards_qty` |
-| `profiles_rows.csv` | Profils utilisateurs | 10 | `id, username, bio, avatar_url, created_at, is_admin` |
-| `profiles_rows (1).csv` | Doublon probable de profiles | 10 | `id, username, bio, avatar_url, created_at, is_admin` |
+| `raw/players_rows.csv` | Données joueur / progression | 8 | `id, username, gold, pack_count, created_at, updated_at, cards_qty` |
+| `raw/profiles_rows.csv` | Profils utilisateurs | 10 | `id, username, bio, avatar_url, created_at, is_admin` |
+| `profiles_rows (1).csv` | Doublon supprime / ignore | 10 | `id, username, bio, avatar_url, created_at, is_admin` |
 
 Résultat important :
 
 ```txt
-profiles_rows.csv et profiles_rows (1).csv sont identiques : True
+raw/profiles_rows.csv et l'ancien profiles_rows (1).csv sont identiques : True
 ```
 
 Donc pour la migration, on peut considérer qu’il n’y a que deux exports utiles :
 
 ```txt
-players_rows.csv
-profiles_rows.csv
+raw/players_rows.csv
+raw/profiles_rows.csv
 ```
 
 ---
@@ -522,11 +540,11 @@ create table if not exists old_import.players (
 );
 ```
 
-Ensuite importer :
+Ensuite importer les vrais CSV locaux :
 
 ```txt
-profiles_rows.csv → old_import.profiles
-players_rows.csv  → old_import.players
+raw/profiles_rows.csv → old_import.profiles
+raw/players_rows.csv  → old_import.players
 ```
 
 Via Supabase :
@@ -549,24 +567,20 @@ Nettoyage des pseudos :
 
 ```sql
 update old_import.players
-set username = trim(regexp_replace(username, '[
-]+', '', 'g'));
+set username = trim(regexp_replace(username, E'[\\r\\n]+', '', 'g'));
 
 update old_import.profiles
-set username = trim(regexp_replace(username, '[
-]+', '', 'g'));
+set username = trim(regexp_replace(username, E'[\\r\\n]+', '', 'g'));
 ```
 
 Vérification :
 
 ```sql
 select * from old_import.players
-where username ~ '[
-]';
+where username ~ E'[\\r\\n]';
 
 select * from old_import.profiles
-where username ~ '[
-]';
+where username ~ E'[\\r\\n]';
 ```
 
 ---
@@ -934,7 +948,6 @@ Exemple conceptuel :
 create or replace function public.handle_new_profile_player()
 returns trigger
 language plpgsql
-security definer
 as $$
 begin
   insert into public.players (
@@ -1218,6 +1231,7 @@ Même si toutes ces tables n’apparaissent pas dans les CSV, c’est une struct
 ```sql
 -- ============================================================
 -- MIGRATION SUPABASE — IMPORT OLD PLAYERS INTO NEW DATABASE
+-- Voir aussi les scripts separes dans docs/migrations/supabase/sql/
 -- ============================================================
 
 -- 1. Schéma temporaire
@@ -1244,17 +1258,15 @@ create table if not exists old_import.players (
 );
 
 -- IMPORT CSV MANUEL À FAIRE ICI :
--- profiles_rows.csv -> old_import.profiles
--- players_rows.csv  -> old_import.players
+-- raw/profiles_rows.csv -> old_import.profiles
+-- raw/players_rows.csv  -> old_import.players
 
 -- 3. Nettoyage
 update old_import.players
-set username = trim(regexp_replace(username, '[
-]+', '', 'g'));
+set username = trim(regexp_replace(username, E'[\\r\\n]+', '', 'g'));
 
 update old_import.profiles
-set username = trim(regexp_replace(username, '[
-]+', '', 'g'));
+set username = trim(regexp_replace(username, E'[\\r\\n]+', '', 'g'));
 
 -- 4. Table finale players
 create table if not exists public.players (

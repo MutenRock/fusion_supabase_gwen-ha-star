@@ -1,0 +1,4 @@
+id,username,bio,avatar_url,created_at,is_admin
+11111111-1111-4111-8111-111111111111,demo_trainer_alpha,"Profil demo pour test de migration.",https://example.invalid/avatar/demo-alpha.png,2025-01-15 10:00:00+00,false
+22222222-2222-4222-8222-222222222222,demo_trainer_beta,"Compte fictif sans donnees personnelles.",https://example.invalid/avatar/demo-beta.png,2025-02-20 14:15:00+00,false
+33333333-3333-4333-8333-333333333333,demo_admin_gamma,"Profil admin fictif pour controle RLS.",https://example.invalid/avatar/demo-gamma.png,2025-03-08 09:45:00+00,true
